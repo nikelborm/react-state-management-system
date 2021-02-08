@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Component } from "react";
 import createNewKit, { getValueFromLink } from "./Library";
 
 
@@ -23,16 +23,33 @@ const RegistrationAvailabilityDependentUnsubscribedComponent = ({ appState }) =>
         }
     </div>
 );
+class RegistrationAvailabilityDependentUnsubscribedClassComponent extends Component {
+    somethingElseFunctionality;
+    render() {
+        return (
+            <div>
+                Registration status: {
+                    getValueFromLink( this.props.appState, regStatusLink ) /* isRegAllowed */
+                        ? "Available"
+                        : "Not available"
+                }
+            </div>
+        );
+    }
+}
 const RegistrationAvailabilityDependentComponent1 = getComponentSubscribedForLinks(
     RegistrationAvailabilityDependentUnsubscribedComponent,
     [ regStatusLink ]
 );
 
-
+const RegistrationAvailabilityDependentComponent2 = getComponentSubscribedForLinks(
+    RegistrationAvailabilityDependentUnsubscribedClassComponent,
+    [ regStatusLink ]
+);
 
 
 const AppContextConsumerSubscribedForRegStatus = getAppContextConsumerSubscribedForLinks( [ regStatusLink ] );
-const RegistrationAvailabilityDependentComponent2 = () => (
+const RegistrationAvailabilityDependentComponent3 = () => (
     <AppContextConsumerSubscribedForRegStatus>
         { appState /* { ( { isRegAllowed } ) */ => <div>
             Registration status: {
@@ -45,9 +62,27 @@ const RegistrationAvailabilityDependentComponent2 = () => (
 );
 
 
-const RegistrationAvailabilityDependentComponent3 = () => (
+const RegistrationAvailabilityDependentComponent4 = () => (
     <AppContextConsumerSubscribedForRegStatus>
         { appState => RegistrationAvailabilityDependentUnsubscribedComponent( { appState } ) }
+    </AppContextConsumerSubscribedForRegStatus>
+);
+
+const RegistrationAvailabilityDependentComponent5 = () => (
+    <AppContextConsumerSubscribedForRegStatus>
+        { appState => React.createElement(
+            RegistrationAvailabilityDependentUnsubscribedComponent,
+            { appState }
+        ) }
+    </AppContextConsumerSubscribedForRegStatus>
+);
+
+const RegistrationAvailabilityDependentComponent6 = () => (
+    <AppContextConsumerSubscribedForRegStatus>
+        { appState => React.createElement(
+            RegistrationAvailabilityDependentUnsubscribedClassComponent,
+            { appState }
+        ) }
     </AppContextConsumerSubscribedForRegStatus>
 );
 
