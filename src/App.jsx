@@ -1,14 +1,11 @@
 import React, { Component } from "react";
-import createNewKit, { getValueFromLink } from "./Library";
-
-
-
+import createNewKit, { getPointerOnValueFromLink } from "./Library";
 
 const {
-    AppStateAndActionsProvider: AppContextProvider,
-    AppStateAndActionsConsumer: AppContextConsumer,
-    getComponentSubscribedForLinks,
-    getAppStateAndActionsConsumerThatRerendersOnlyWhenValuesOnLinksChanged: getAppContextConsumerSubscribedForLinks
+    AppContextProvider,
+    AppContextRenderer,
+    getComponentSubscribedForLinksWhichPassesAppStateAndActionsProps,
+    getAppContextRendererSubscribedForLinks
 } = createNewKit();
 
 const regStatusLink = [ "isRegAllowed" ];
@@ -17,7 +14,7 @@ const regStatusLink = [ "isRegAllowed" ];
 const RegistrationAvailabilityDependentUnsubscribedComponent = ({ appState }) => (
     <div>
         Registration status: {
-            getValueFromLink( appState, regStatusLink ) /* isRegAllowed */
+            getPointerOnValueFromLink( appState, regStatusLink ) /* isRegAllowed */
                 ? "Available"
                 : "Not available"
         }
@@ -29,7 +26,7 @@ class RegistrationAvailabilityDependentUnsubscribedClassComponent extends Compon
         return (
             <div>
                 Registration status: {
-                    getValueFromLink( this.props.appState, regStatusLink ) /* isRegAllowed */
+                    getPointerOnValueFromLink( this.props.appState, regStatusLink ) /* isRegAllowed */
                         ? "Available"
                         : "Not available"
                 }
@@ -37,53 +34,58 @@ class RegistrationAvailabilityDependentUnsubscribedClassComponent extends Compon
         );
     }
 }
-const RegistrationAvailabilityDependentComponent1 = getComponentSubscribedForLinks(
+const RegistrationAvailabilityDependentComponent1 = getComponentSubscribedForLinksWhichPassesAppStateAndActionsProps(
     RegistrationAvailabilityDependentUnsubscribedComponent,
     [ regStatusLink ]
 );
 
-const RegistrationAvailabilityDependentComponent2 = getComponentSubscribedForLinks(
+const RegistrationAvailabilityDependentComponent2 = getComponentSubscribedForLinksWhichPassesAppStateAndActionsProps(
     RegistrationAvailabilityDependentUnsubscribedClassComponent,
     [ regStatusLink ]
 );
 
 
-const AppContextConsumerSubscribedForRegStatus = getAppContextConsumerSubscribedForLinks( [ regStatusLink ] );
+const RendererSubscribedForLinks = getAppContextRendererSubscribedForLinks( [ regStatusLink ] );
 const RegistrationAvailabilityDependentComponent3 = () => (
-    <AppContextConsumerSubscribedForRegStatus>
-        { appState /* { ( { isRegAllowed } ) */ => <div>
+    <RendererSubscribedForLinks render={
+        appState /* { ( { isRegAllowed } ) */ => <div>
             Registration status: {
-                getValueFromLink( appState, regStatusLink ) /* isRegAllowed */
+                getPointerOnValueFromLink( appState, regStatusLink ) /* isRegAllowed */
                     ? "Available"
                     : "Not available"
             }
-        </div> }
-    </AppContextConsumerSubscribedForRegStatus>
+        </div>
+    } />
 );
 
 
 const RegistrationAvailabilityDependentComponent4 = () => (
-    <AppContextConsumerSubscribedForRegStatus>
-        { appState => RegistrationAvailabilityDependentUnsubscribedComponent( { appState } ) }
-    </AppContextConsumerSubscribedForRegStatus>
+    <RendererSubscribedForLinks render={
+        appState => RegistrationAvailabilityDependentUnsubscribedComponent( { appState } )
+    } />
 );
 
 const RegistrationAvailabilityDependentComponent5 = () => (
-    <AppContextConsumerSubscribedForRegStatus>
-        { appState => React.createElement(
+    <RendererSubscribedForLinks render={
+        appState => React.createElement(
             RegistrationAvailabilityDependentUnsubscribedComponent,
             { appState }
-        ) }
-    </AppContextConsumerSubscribedForRegStatus>
+        )
+    } />
+);
+const RegistrationAvailabilityDependentComponent6 = () => (
+    <RendererSubscribedForLinks render={
+        appState => <RegistrationAvailabilityDependentUnsubscribedComponent appState={ appState }/>
+    } />
 );
 
-const RegistrationAvailabilityDependentComponent6 = () => (
-    <AppContextConsumerSubscribedForRegStatus>
-        { appState => React.createElement(
+const RegistrationAvailabilityDependentComponent7 = () => (
+    <RendererSubscribedForLinks render={
+        appState => React.createElement(
             RegistrationAvailabilityDependentUnsubscribedClassComponent,
             { appState }
-        ) }
-    </AppContextConsumerSubscribedForRegStatus>
+        )
+    } />
 );
 
 
