@@ -1,7 +1,6 @@
 import React, { Component } from "react";
-// import cloneDeep from 'lodash/cloneDeep';
 
-export function getValueFromLink( tree, link ) {
+export function getPointerOnValueFromLink( tree, link ) {
     let miner = tree;
     for ( const branchToSlope of link ) {
         miner = miner[ branchToSlope ];
@@ -12,78 +11,78 @@ export function getValueFromLink( tree, link ) {
 export const isValuesOnLinksEqual = links => ( prevAppStateContainer, nextAppStateContainer ) => {
     for ( const link of links ) {
         if (
-            getValueFromLink( prevAppStateContainer.appState, link ) !==
-            getValueFromLink( nextAppStateContainer.appState, link )
+            getPointerOnValueFromLink( prevAppStateContainer.appState, link ) !==
+            getPointerOnValueFromLink( nextAppStateContainer.appState, link )
         ) return false;
     }
     return true;
 };
 
-function update( what ) {
+export function reassembleNode( what ) {
     return Object.prototype.toString.call( what ) === '[object Array]' ? [ ...what ] : { ...what };
 }
 
-export function setValueOnLink( treein, link, value ) {
+export function reassembleAllNodesInLink( treein, link ) {
     let growingLink = [];
-    const tree = update( treein );
-    for ( const currentNodeName of link.slice( 0, -1 ) ) {
-        let parentNode = tree;
-        for ( const nodeName of growingLink ) {
-            parentNode = parentNode[ nodeName ];
-        }
-        parentNode[ currentNodeName ] = update( parentNode[ currentNodeName ] );
+    const treeout = reassembleNode( treein );
+    for ( const currentNodeName of link ) {
+        let parentNode = getPointerOnValueFromLink( treeout, growingLink );
+        parentNode[ currentNodeName ] = reassembleNode( parentNode[ currentNodeName ] );
         growingLink.push( currentNodeName );
     }
-    let parentNode = tree;
-    for ( const nodeName of growingLink ) {
-        parentNode = parentNode[ nodeName ];
-    }
-    parentNode[ link[ link.length - 1 ] ] = value;
-    return tree;
+    return treeout;
 }
 
-export const getAppStateAndActionsConsumer = Context =>
-( { children } ) => (
+export function setValueOnLink( treein, link, value ) {
+    let treeout = reassembleAllNodesInLink( treein, link.slice( 0, -1 ) );
+    let parentNode = getPointerOnValueFromLink( treeout, link.slice( 0, -1 ) );
+    parentNode[ link[ link.length - 1 ] ] = value;
+    return treeout;
+}
+
+export const getAppStateAndActionsRenderer = Context =>
+( { render } ) => (
     <Context.Consumer>
-        { ( { appState, stateDependentActions } ) => (
-            children( appState, stateDependentActions )
-        ) }
+        { context => render( ...context ) /* appState, stateDependentActions */ }
     </Context.Consumer>
 );
 
-export const getGeneratorOfAppStateAndActionsConsumersThatRerendersOnlyWhenValuesOnLinksChanged = Context => links => {
-    const Wrapper = React.memo(
-        // @ts-ignore
-        ( { children, appState, stateDependentActions } ) => children( appState, stateDependentActions ),
+const AppStateAndActionsDistributor = ( { render, appState, stateDependentActions } ) => render( appState, stateDependentActions );
+
+export const getGeneratorOfAppStateAndActionsConsumersWhichRerendersOnlyWhenValuesOnLinksChanged = Context => links => {
+    const AppStateAndActionsDistributorWhichRerendersOnlyWhenValuesOnLinksChanged = React.memo(
+        AppStateAndActionsDistributor,
         isValuesOnLinksEqual( links )
-    )
-    return ( { children } ) => (
+    );
+    const AppStateAndActionsConsumerWhichRerendersOnlyWhenValuesOnLinksChanged = ( { render } ) => (
         <Context.Consumer>
             { ( { appState, stateDependentActions } ) => (
                 React.createElement(
-                    Wrapper,
-                    { appState, stateDependentActions, children }
+                    AppStateAndActionsDistributorWhichRerendersOnlyWhenValuesOnLinksChanged,
+                    { appState, stateDependentActions, render }
                 )
             ) }
         </Context.Consumer>
-    )
+    );
+    return AppStateAndActionsConsumerWhichRerendersOnlyWhenValuesOnLinksChanged;
 };
 
 export const getGeneratorOfComponentsSubscribedForLinks = Context => ( Component, links ) => {
-    const SomeShit = getGeneratorOfAppStateAndActionsConsumersThatRerendersOnlyWhenValuesOnLinksChanged( Context )( links );
-    return props => (
-        <SomeShit
-            children={
+    const AppStateAndActionsConsumerWhichRerendersOnlyWhenValuesOnLinksChanged = getGeneratorOfAppStateAndActionsConsumersWhichRerendersOnlyWhenValuesOnLinksChanged( Context )( links );
+    const ComponentSubscribedForLinks = props => (
+        <AppStateAndActionsConsumerWhichRerendersOnlyWhenValuesOnLinksChanged
+            render={
                 ( appState, stateDependentActions ) => React.createElement( Component, {...props, appState, stateDependentActions } )
             }
         />
-    )
+    );
+    return ComponentSubscribedForLinks;
 };
 
 export const getAppStateAndActionsProvider = Context => (
 class extends Component {
     setStateNode = ( link, value ) => this.setState( prevState => setValueOnLink( prevState, link, value ) );
-    getStateNode = link => getValueFromLink( this.state, link );
+    getStateNode = link => getPointerOnValueFromLink( this.state, link );
     actions = {};
     state = {};
     render() {
@@ -107,9 +106,13 @@ export default function createNewKit() {
         stateDependentActions: {}
     } );
     return {
-        AppStateAndActionsProvider: getAppStateAndActionsProvider( AppContext ),
-        AppStateAndActionsConsumer: getAppStateAndActionsConsumer( AppContext ),
-        getComponentSubscribedForLinks: getGeneratorOfComponentsSubscribedForLinks( AppContext ),
-        getAppStateAndActionsConsumerThatRerendersOnlyWhenValuesOnLinksChanged: getGeneratorOfAppStateAndActionsConsumersThatRerendersOnlyWhenValuesOnLinksChanged( AppContext )
+        // Поставщик состояния от которого надо наследоваться
+        AppContextProvider: getAppStateAndActionsProvider( AppContext ),
+        // при каждом рендере он будет вызывать render(appState, actions) из props
+        AppContextRenderer: getAppStateAndActionsRenderer( AppContext ),
+        // нужно задать ( Component, links ) и он в Component передаёт props = (appState, actions). Ререндерится только когда значения по ссылке изменились
+        getComponentSubscribedForLinksWhichPassesAppStateAndActionsProps: getGeneratorOfComponentsSubscribedForLinks( AppContext ),
+        // нужно задать ( links ) и при каждом рендере он будет вызывать функцию render(appState, actions) из props. Ререндерится только когда значения по ссылке изменились
+        getAppContextRendererSubscribedForLinks: getGeneratorOfAppStateAndActionsConsumersWhichRerendersOnlyWhenValuesOnLinksChanged( AppContext )
     };
 }
